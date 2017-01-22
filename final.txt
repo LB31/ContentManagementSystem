@@ -1,0 +1,88 @@
+<?php
+
+include ("verbindung.php");
+$verbindung = mysql_connect($servername, $benutzer, $passwort) OR DIE ("Keine Verbindung");
+$dbzugriff = mysql_select_db($datenbank, $verbindung) OR DIE ("Keine Datenbank");
+
+$template = file_get_contents("backend.html");
+$ziel = $_SERVER['PHP_SELF'];
+$thema = "";
+$inhalt = "";
+$parent = "";
+$position = "";
+$id = "0";
+$status = "insert";
+
+if (isset($_POST['senden'])) {
+  $status = $_POST['sendestatus'];
+  $thema = $_POST['sendethema'];
+  $inhalt = $_POST['sendeinhalt'];
+  $parent = $_POST['sendeparent'];
+  $position = $_POST['sendeposition'];
+  if ($status == "insert") {
+    $befehl = "INSERT INTO netze (thema, inhalt, parent, position) ";
+    $befehl .= "VALUES ('$thema', '$inhalt', '$parent', '$position')";
+    mysql_query($befehl);
+  }
+  if ($status == "update") {
+    $id = $_POST['id'];
+    $loesch = $thema == "" && $inhalt == "";
+    if ($loesch) {
+      $befehl = "DELETE FROM netze WHERE id='$id'";
+    } else {
+      $befehl = "UPDATE netze SET thema='$thema', inhalt='$inhalt', ";
+      $befehl .= "parent='$parent', position='$position' WHERE id='$id'";
+    }
+    mysql_query($befehl);
+  }
+  $thema = "";
+  $inhalt = "";
+  $parent = "";
+  $position = "";
+  $status = "insert";
+}
+
+if (isset($_GET['id'])) {
+  $id = $_GET['id'];
+  $befehl = "SELECT * FROM netze WHERE $id=id";
+  $ergebnis = mysql_query($befehl);
+  $zeile = mysql_fetch_array($ergebnis);
+  $thema = $zeile["thema"];
+  $inhalt = $zeile["inhalt"];
+  $parent = $zeile["parent"];
+  $position = $zeile["position"];
+  $status = "update";
+}
+
+$navigation = "";
+$befehl = "SELECT * FROM netze WHERE parent=0 ORDER BY position";
+// Hauptebene
+$ergebnis = mysql_query($befehl);
+while ($zeile = mysql_fetch_array($ergebnis)) {
+  $linkid = $zeile["id"];
+  $linktext = $zeile["thema"];
+  $navigation .= "<p class='ober'><a class='ober' href='$ziel?id=$linkid'>$linktext</a></p>";
+  // zweite Ebene
+  $befehl = "SELECT * FROM netze WHERE parent=$linkid ORDER BY position";
+  $ergebnis2 = mysql_query($befehl);
+  while ($zeile = mysql_fetch_array($ergebnis2)) {
+    $linkid = $zeile["id"];
+    $linktext = $zeile["thema"];
+    $navigation .= "<p class='unter'><a class='unter' href='$ziel?id=$linkid'>$linktext</a></p>";
+  }
+  // Ende zweite Ebene
+}
+
+$template = str_replace("{ZIEL}", $ziel, $template);
+$template = str_replace("{NAVIGATION}", $navigation, $template);
+$template = str_replace("{THEMA}", $thema, $template);
+$template = str_replace("{INHALT}", $inhalt, $template);
+$template = str_replace("{ID}", $id, $template);
+$template = str_replace("{STATUS}", $status, $template);
+$template = str_replace("{PARENT}", $parent, $template);
+$template = str_replace("{POSITION}", $position, $template);
+echo $template;
+
+mysql_close($verbindung);
+?>
+
